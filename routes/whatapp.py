@@ -1,7 +1,9 @@
-from flask import Flask, Blueprint
+import os
+from flask import Flask, Blueprint, request
 import threading
 from services.whatsapp_browser import send_message, setup_browser
-from logs.logging_config import logging
+from logs.logging_config import setup_logging
+logger = setup_logging()
 
 app = Flask(__name__)
 
@@ -9,19 +11,19 @@ whatapp_blueprint = Blueprint('whatapp', __name__)
 
 @whatapp_blueprint.route("/send_message", methods=["POST"])
 def send_message_route():
-    phone_number = ["+85517694939","+85581470095"]
-    message = "Hello, this is a test message!"
+    phone_numbers = request.form["phone_numbers"].split(",")
+    message = request.form["message"]
     driver = setup_browser()
     if driver:
-        threading.Thread(target=send_message, args=(driver, phone_number, message)).start()
-        message = "Message sent successfully!"
-        logging.info(f"{message}")
-        return message
+        for phone_number in phone_numbers:
+            process = threading.Thread(target=send_message, args=(driver, phone_number, message)).start()
+            print('threading')
+            print(process)
+        return "Message sent successfully!"
     else:
         message = "Error setting up browser"
-        logging.info(f"{message}")
+        logger.info(f"{message}")
         return message
-
 app.register_blueprint(whatapp_blueprint)
 
 if __name__ == "__main__":
