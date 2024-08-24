@@ -6,6 +6,8 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.action_chains import ActionChains
+from logs.logging_config import logging
 
 def setup_browser():
     try:
@@ -14,7 +16,7 @@ def setup_browser():
         options.add_argument("--user-data-dir=C:\\Users\\User\\AppData\\Local\\Google\\Chrome\\User Data")
         options.add_argument("--profile 3")
         options.add_argument("--disable-tflite-xnnpack")
-
+        logging.info(f"Load User profile : C:\\Users\\User\\AppData\\Local\\Google\\Chrome\\User Data\\profile 3")
         # Set up the browser service
         service = Service(ChromeDriverManager().install())
 
@@ -23,46 +25,60 @@ def setup_browser():
 
         # Navigate to WhatsApp
         driver.get("https://web.whatsapp.com/")
-
+        logging.info(f"Goto : https://web.whatsapp.com/")
         # Wait for WhatsApp Web to load completely
-        New_chat = WebDriverWait(driver, 60).until(EC.presence_of_element_located((By.XPATH, "//div[@title='New chat']")))
         return driver
     except Exception as e:
-        print(f"Error setting up browser: {e}")
+        logging.info(f"Error setting up browser: {e}")
         return None
 
-def send_message(driver, phone_number, message):
-    try:
-        # Click on the new chat button
-        new_chat_button = WebDriverWait(driver, 60).until(EC.presence_of_element_located((By.XPATH, "//div[@title='New chat']")))
-        new_chat_button.click()
+def send_message(driver, phone_numbers, message):
+    for phone_number in phone_numbers:
+        logging.info(f"Sending message to {phone_number}: {message}")
+        try:
+            # Click on the new chat button
+            new_chat_button = WebDriverWait(driver, 60).until(EC.presence_of_element_located((By.XPATH, "//div[@title='New chat']")))
+            new_chat_button.click()
+            logging.info(f"{phone_number}: new_chat_button.click()")
+            # Enter the phone number
+            phone_number_input = WebDriverWait(driver, 60).until(EC.presence_of_element_located((By.XPATH, "//div[@aria-label='Search name or number']")))
+            phone_number_input.send_keys(phone_number)
+            logging.info(f"{phone_number}: input phone_number")
 
-        # Enter the phone number
-        phone_number_input = WebDriverWait(driver, 60).until(EC.presence_of_element_located((By.XPATH, "//div[@aria-label='Search name or number']")))
-        phone_number_input.send_keys(phone_number)
-
-        chats_xpath = "//div[contains(text(), 'Contacts on WhatsApp')]"
-        chat_element = WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, chats_xpath)))
-        # Get search result
-        _element = chat_element.find_element(By.XPATH, "ancestor::*[2]")
-        parent_element = _element.find_element(By.XPATH, "ancestor::*[1]")
-        # Wait for the parent element to be visible
-        WebDriverWait(driver, 30).until(EC.visibility_of(parent_element))
-        time.sleep(10)  # wait for 1 second
+            chats_xpath = "//div[contains(text(), 'Contacts on WhatsApp')]"
+            chat_element = WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, chats_xpath)))
+            # Get search result
+            logging.info(f"{phone_number}: find Contacts on WhatsApp")
+            _element = chat_element.find_element(By.XPATH, "ancestor::*[2]")
+            parent_element = _element.find_element(By.XPATH, "ancestor::*[1]")
+            # Wait for the parent element to be visible
+            WebDriverWait(driver, 30).until(EC.visibility_of(parent_element))
+            time.sleep(5)  # wait for 1 second
             
-        direct_child_divs = parent_element.find_elements(By.XPATH, "div")
-        last_child_div = direct_child_divs[-1]
-        print(last_child_div.get_attribute("outerHTML"))
-        time.sleep(10)
-        last_child_div.click()
-        time.sleep(10)
-        # type_a_message_xpath = "//div[@aria-label='Type a message' and @visibility='visible']"
-        # type_a_message = WebDriverWait(driver, 60).until(EC.visibility_of_element_located((By.XPATH, type_a_message_xpath)))
-        # print(type_a_message.get_attribute("outerHTML"))
+            direct_child_divs = parent_element.find_elements(By.XPATH, "div")
+            last_child_div = direct_child_divs[-1]
+            
+            time.sleep(5)
+            last_child_div.click()
+            logging.info(f"{phone_number}: contact.click()")
+            time.sleep(5)
+            type_a_message = WebDriverWait(driver, 60).until(
+                EC.presence_of_element_located((By.XPATH, "//div[@aria-label='Type a message']"))
+            )
+            
+            type_a_message.click()
+            logging.info(f"{phone_number}: type_a_message.click()")
+            actions = ActionChains(driver)
+            actions.send_keys_to_element(type_a_message, message)
+            logging.info(f"{phone_number}: type_a_message.send_keys_to_element()")
+            actions.perform()
+            time.sleep(5)
+            send_button_div = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.XPATH, "//button [@aria-label='Send']"))
+            )
+            send_button_div.click()
+            logging.info(f"{phone_number}: send_button_div.click()")
+            time.sleep(5)
 
-        # type_a_message.send_keys(message)
-        # print(last_child_div.get_attribute("outerHTML"))
-         # prints the number of child div elemen
-
-    except Exception as e:
-        print(f"Error sending message: {e}")
+        except Exception as e:
+            logging.info(f"Error sending message to {phone_number}: {e}")
